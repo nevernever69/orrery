@@ -1,6 +1,6 @@
 Prototype Updates & Stand-out Features -
 
-Feature 1: TIME MANIPULATION
+Feature 1: SPEED MANIPULATION
 - Current Status: Live & Functional 
 - We have now successfully integrated the Time Manipulation feature into our Orrery Web App.
 - By default, the Orrery is set to demonstrate real-time Orbital Trajectories, Positions and Motion of the Celestial Bodies.
