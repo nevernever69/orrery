@@ -83,9 +83,9 @@ export function clickTag(t) {
         ORR.makeLabel(t);
     }
     ORR.state.clickedLabel = $('#' + t);
-    ORR.state.clickedLabel.addClass( "active" ).show();
+    ORR.state.clickedLabel.addClass("active").show();
     if ($.isEmptyObject(ORR.state.lastClickedPlanet) == false) {
-        ORR.paths[ORR.state.clickedPlanet.path].material = ORR.pathMaterials[Math.min(ORR.state.lastClickedPlanet.type, 3)];
+        ORR.paths[ORR.state.lastClickedPlanet.path].material = ORR.pathMaterials[Math.min(ORR.state.lastClickedPlanet.type, 3)];
     }
     ORR.state.clickedPlanet = ORR.system[t];
     ORR.paths[ORR.state.clickedPlanet.path].material = ORR.selectedPathMat;
@@ -95,11 +95,37 @@ export function clickTag(t) {
     $("#distToActive").remove();
     ORR.state.lastClickedPlanet = ORR.state.clickedPlanet;
     ORR.controls.minDistance = 0.1;
+
+    // Calculate zoom level based on planet size
+    const zoomDistance = ORR.state.clickedPlanet.radius * 5; // Adjust multiplier as needed
+
     const tweenTo = new TWEEN.Tween(ORR.controls.target)
-        .to( { x:ORR.state.clickedPlanet.celestialPos.x, y:ORR.state.clickedPlanet.celestialPos.y, z:ORR.state.clickedPlanet.celestialPos.z}, 1000 ).easing(TWEEN.Easing.Quadratic.InOut)
-        .onUpdate( function() { this.to({ x:ORR.state.clickedPlanet.celestialPos.x, y:ORR.state.clickedPlanet.celestialPos.y, z:ORR.state.clickedPlanet.celestialPos.z })} )
+        .to({ x: ORR.state.clickedPlanet.celestialPos.x, y: ORR.state.clickedPlanet.celestialPos.y, z: ORR.state.clickedPlanet.celestialPos.z }, 1000)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .onUpdate(function() {
+            this.to({ x: ORR.state.clickedPlanet.celestialPos.x, y: ORR.state.clickedPlanet.celestialPos.y, z: ORR.state.clickedPlanet.celestialPos.z });
+        })
         .start();
 
+    // Add camera zoom animation
+    const tweenZoom = new TWEEN.Tween(ORR.camera.position)
+        .to({ x: ORR.state.clickedPlanet.celestialPos.x + zoomDistance, 
+             y: ORR.state.clickedPlanet.celestialPos.y + zoomDistance, 
+             z: ORR.state.clickedPlanet.celestialPos.z + zoomDistance }, 1000)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .start();
+
+    // Update UI elements
+    $("#info a").attr("href", ORR.state.clickedPlanet.wiki);
+    $("#infohead").html(ORR.state.clickedLabel[0].innerHTML);
+    if (ORR.state.clickedPlanet.wikipic != "default") {
+        $("#info img").attr("src", ORR.state.clickedPlanet.wikipic).show();
+    } else {
+        $("#info img").hide();
+    }
+}
+
+function updatePlanetInfo() {
     $("#info a").attr("href", ORR.state.clickedPlanet.wiki);
     $("#infohead").html(ORR.state.clickedLabel[0].innerHTML);
     if (ORR.state.clickedPlanet.wikipic != "default") {
@@ -115,9 +141,8 @@ export function clickTag(t) {
         moonInfo += (ORR.state.clickedPlanet.moons > 2) ? ', et al.)</a>' : ')</a>';
     }
     $("#planetInfo").html( planetInfo + moonInfo );
-        $("#moonZoom").on("click", function() {
-        zoomToggle();
-    })
+    $("#moonZoom").on("click", zoomToggle);
+    
     const adjustedA = (ORR.state.clickedPlanet.semiMajorAxis < 0.1 ) ? (ORR.state.clickedPlanet.semiMajorAxis * ORR.AU).toFixed(1) + '&nbsp;km' : ORR.state.clickedPlanet.semiMajorAxis.toFixed(4) + '&nbsp;AU';
     $("#semiMajorAxis").html(adjustedA);
     const adjustedP = (ORR.state.clickedPlanet.period < 0.01 ) ? (ORR.state.clickedPlanet.period * ORR.daysPerCent).toFixed(3) + '&nbsp;days' : (ORR.state.clickedPlanet.period * 100).toFixed(3) + '&nbsp;years'
@@ -127,7 +152,7 @@ export function clickTag(t) {
     $("#radius").html(parseFloat(ORR.state.clickedPlanet.radius).toFixed(1));
     $("#absMag").html(ORR.state.clickedPlanet.absoluteMag.toFixed(2));
     $("#info").show(300);
-    if (t == ORR.specialID.earth) { 
+    if (ORR.state.clickedPlanet.sysId == ORR.specialID.earth) { 
         $("#earthRel").hide(); 
         $("#earth").show(); 
     } else { 
@@ -135,6 +160,7 @@ export function clickTag(t) {
         $("#earth").hide(); 
     }
 }
+
 
 /**
  * Unclick a tag.
@@ -229,7 +255,7 @@ $( "#autocomplete" ).autocomplete({
     minLength: 2,
     source: function( request, response ) {
           var matcher = new RegExp( $.ui.autocomplete.escapeRegex( request.term ), "i" );
-          response( $.grep( ORR.searchLists.combined, function( item ){
+          response( $.grep( ORR.zoomLists.combined, function( item ){
               return matcher.test( item );
           }));
       },
@@ -237,10 +263,11 @@ $( "#autocomplete" ).autocomplete({
         if (ORR.state.clickedLabel != "") {
             closeTag(ORR.state.clickedLabel);
         }
-        clickTag(ORR.searchLists.orderedNames.indexOf(ui.item.value));
+        const selectedIndex = ORR.zoomLists.orderedNames.indexOf(ui.item.value);
+        clickTag(selectedIndex);
         this.value = "";
         return false;
-    }
+      }
 });
 
 $( function() {
@@ -276,7 +303,7 @@ $("#now").on("click", function() {
     ORR.setTime(ORR.unixToMJD(Date.now()));
 });
 
-$("#moonBox, #asteroidBox, #cometBox").on("click", function() {
+$("#moonBox, #asteroidBox,// #cometBox").on("click", function() {
     $("#autocomplete")[0].value = "";
     ORR.searchLists.combined = ORR.searchLists.planetNames.concat( 
         ($("#moonBox")[0].checked) ? ORR.searchLists.moonNames : null, 
